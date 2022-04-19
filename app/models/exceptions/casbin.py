@@ -4,8 +4,8 @@ class CasbinRuleDoesNotExist(Exception):
     code = 21
     http_code = 404
 
-    def __init__(self, user_id: str, resource_id: str) -> None:
-        self.message = f"User {user_id} does not have access for resource {resource_id}"
+    def __init__(self, user_id: str, resource_id: str, tenant_id: str) -> None:
+        self.message = f"User {user_id} does not have access for resource {resource_id} with tenant {tenant_id}"
         super().__init__(self.message)
 
 
@@ -15,8 +15,6 @@ class CasbinRuleAlreadyExists(Exception):
     code = 21
     http_code = 409
 
-    def __init__(self, user_id: str, resource_id: str) -> None:
-        self.message = (
-            f"User {user_id} already has access for resource or role {resource_id}"
-        )
+    def __init__(self, user_id: str, resource_id: str, tenant_id: str) -> None:
+        self.message = f"User {user_id} already has access for resource or role {resource_id} with tenant {tenant_id}"
         super().__init__(self.message)

@@ -17,7 +17,7 @@ class CasbinRule(Base):
         String, nullable=True, index=True
     )  # user id or role name, the sub, index for faster obtain the wanted policies
     v1 = Column(String, nullable=True)  # role name if g, tenant id if p
-    v2 = Column(String, nullable=True)  # tenant id if g, resource name if p
+    v2 = Column(String, nullable=True, index=True)  # tenant id if g, resource id if p
     v3 = Column(String, nullable=True)  # empty if g, resource right if p
     v4 = Column(String, nullable=True)  # empty
     v5 = Column(String, nullable=True)  # empty
