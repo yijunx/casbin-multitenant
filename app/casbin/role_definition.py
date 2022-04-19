@@ -11,13 +11,13 @@ class PolicyTypeEnum(str, Enum):
 class ResourceDomainEnum(str, Enum):
     """There could be more domains and different kind of admins"""
 
-    datasets = "datasets/"
+    items = "items/"
 
 
 class RoleEnum(str, Enum):
     """the name of admin to store in casbin table"""
 
-    dataset_admin = "dataset_admin"
+    admin = "admin"
 
 
 class ResourceRightsEnum(str, Enum):

@@ -4,7 +4,7 @@ from sqlalchemy.sql.functions import user
 from app.models.sqlalchemy.models import CasbinRule
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
-from app.models.user import User
+from app.models.schemas.user import UserInJWT
 from app.models.pagination import QueryPagination, ResponsePagination
 from datetime import datetime, timezone
 from app.casbin.role_definition import ResourceRightsEnum, PolicyTypeEnum
@@ -39,9 +39,8 @@ def create_policy(
     db: Session,
     resource_id: str,
     user_id: str,
-    tenant_id: str,
     right: ResourceRightsEnum,
-    actor: User,
+    actor: UserInJWT,
 ) -> CasbinRule:
     """
     used when share..
@@ -50,7 +49,7 @@ def create_policy(
         # id is auto increment,
         ptype=PolicyTypeEnum.p,
         v0=user_id,
-        v1=tenant_id,
+        v1=actor.tenant_id,
         v2=resource_id,
         v3=right,
         created_at=datetime.now(timezone.utc),
@@ -64,7 +63,7 @@ def create_policy(
     except IntegrityError:
         db.rollback()
         raise CasbinRuleAlreadyExists(
-            user_id=user_id, resource_id=resource_id, tenant_id=tenant_id
+            user_id=user_id, resource_id=resource_id, tenant_id=actor.tenant_id
         )
     return db_item
 
@@ -143,7 +142,7 @@ def update_policy(
     user_id: str,
     tenant_id: str,
     right: ResourceRightsEnum,
-    actor: User,
+    actor: UserInJWT,
 ) -> CasbinRule:
     """used when update the user rights
     for example, to make a user from view to owner or editor"""
@@ -176,16 +175,15 @@ def create_or_update_policy(
     db: Session,
     resource_id: str,
     user_id: str,
-    tenant_id: str,
     right: ResourceRightsEnum,
-    actor: User,
+    actor: UserInJWT,
 ) -> CasbinRule:
     try:
         db_item = update_policy(
             db=db,
             resource_id=resource_id,
             user_id=user_id,
-            tenant_id=tenant_id,
+            tenant_id=actor.tenant_id,
             right=right,
             actor=actor,
         )
@@ -194,7 +192,7 @@ def create_or_update_policy(
             db=db,
             resource_id=resource_id,
             user_id=user_id,
-            tenant_id=tenant_id,
+            tenant_id=actor.tenant_id,
             right=right,
             actor=actor,
         )
