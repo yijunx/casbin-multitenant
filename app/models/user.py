@@ -6,6 +6,7 @@ class User(BaseModel):
 
     id: str
     name: str
+    tenant_id: str
 
     # well we dont need other fields just for dmo
 

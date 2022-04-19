@@ -12,13 +12,14 @@ from app.models.exceptions.casbin import CasbinRuleAlreadyExists, CasbinRuleDoes
 from app.repositories.util import translate_query_pagination
 
 
-def create_grouping(db: Session, user_id: str, role_id: str, actor: User) -> CasbinRule:
-    """used when creating an admin user"""
+def create_grouping(db: Session, user_id: str, role_name: str, actor: User) -> CasbinRule:
+    """used when creating an admin user
+    saying this user_id is a role"""
     db_item = CasbinRule(
         # id is auto increment,
         ptype=PolicyTypeEnum.g,
         v0=user_id,
-        v1=role_id,
+        v1=role_name,
         created_at=datetime.now(timezone.utc),
         created_by=actor.id,
     )

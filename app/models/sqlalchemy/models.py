@@ -41,3 +41,6 @@ class User(Base):
 
     id = Column(String, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    tenant_id = Column(String, nullable=False)
+
+    # and email etc.. not going to add here...
