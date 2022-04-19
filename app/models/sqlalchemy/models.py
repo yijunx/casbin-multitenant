@@ -31,6 +31,7 @@ class CasbinRule(Base):
 class Item(Base):
     __tablename__ = "items"
     id = Column(String, primary_key=True, index=True)
+    name = Column(String, nullable=False)
     desc = Column(String, nullable=True)
     content = Column(String, nullable=False)
     created_by = Column(String, nullable=False)
