@@ -3,3 +3,4 @@ pydantic[dotenv]
 casbin
 casbin_sqlalchemy_adapter
 casbin
+psycopg2
