@@ -5,6 +5,7 @@ class Settings(BaseSettings):
 
     DATABASE_URI: str
     DEFAULT_TENANT_ID: str = ""
+    DEFAULT_PAGE_SIZE: int
 
 
 class DevelopmentConfig(Settings):
