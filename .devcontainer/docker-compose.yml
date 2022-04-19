@@ -1,0 +1,34 @@
+version: "3"
+
+services:
+  casbin-multitenant:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/opt/yijunx/code
+      - ~/etc/localtime:/opt/yijunx/etc/localtime
+      - ~/etc/timezone:/opt/yijunx/etc/timezone
+      - ../../certs:/opt/yijunx/etc/certs
+    command: ["tail -f /dev/null"]
+    ports:
+      - 8001:8000
+
+  db:
+    image: postgres:11
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=db
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=pdadmin4@pdadmin.org
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - 5052:80
+    depends_on:
+      - postgres
