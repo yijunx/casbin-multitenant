@@ -30,5 +30,3 @@ services:
       - PGADMIN_DEFAULT_PASSWORD=admin
     ports:
       - 5052:80
-    depends_on:
-      - postgres
