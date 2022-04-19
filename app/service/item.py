@@ -98,7 +98,7 @@ def share_item(item_id: str, user_share: UserShare, actor: User):
 
         # raises exception if the user does not exist
         sharee = UserManagementService.get_user_info_from_user_management(
-            user_id=user_share.id
+            user_id=user_share.id, tenant_id=actor.tenant_id
         )
         # create the user if the user is not here
         db_sharee = UserRepo.get_or_create(db=db, user=sharee)
