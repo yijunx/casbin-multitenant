@@ -50,6 +50,7 @@ def create_casbin_enforcer():
     casbin_enforcer.add_function("objects_mapping", objects_mapping)
     return casbin_enforcer
 
+
 casbin_enforcer = create_casbin_enforcer()
 
 
