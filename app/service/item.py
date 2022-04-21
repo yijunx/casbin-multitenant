@@ -1,9 +1,14 @@
-from app.casbin.role_definition import ResourceDomainEnum, ResourceRightsEnum
+from app.casbin.role_definition import (
+    ResourceActionsEnum,
+    ResourceDomainEnum,
+    ResourceRightsEnum,
+    RoleEnum,
+)
 from app.casbin.resource_id_converter import (
     get_item_id_from_resource_id,
     get_resource_id_from_item_id,
 )
-from app.casbin.enforcer import casbin_enforcer
+from app.casbin.enforcer import create_casbin_enforcer
 from app.utils.db import get_db
 from app.models.schemas.item import (
     ItemCreate,
@@ -14,6 +19,7 @@ from app.models.item import Item, ItemWithPaging
 from app.models.pagination import QueryPagination
 from app.models.schemas.user import UserInJWT, UserShare
 from app.models.user import UserAsSharee, UserAsShareeWithPaging, User
+from app.models.exceptions.casbin import CasbinNotAuthorised
 
 # from app.schemas.casbin import CasbinPolicy, CasbinGroup
 import app.repositories.item as ItemRepo
@@ -21,20 +27,39 @@ import app.repositories.user as UserRepo
 import app.repositories.casbin as CasbinRepo
 import app.utils.user_management as UserManagementService
 
+# get the enforce functions
+from app.casbin.enforcer import enforce
+
 
 def create_item(item_create: ItemCreate, actor: UserInJWT) -> Item:
+    """no need to implement enforce here
+    cos everyone can create item"""
     with get_db() as db:
         # create the item
         db_item = ItemRepo.create(db=db, item_create=item_create, actor=actor)
 
-        # create the casbin policy
+        # create the casbin policy for the creator
         _ = CasbinRepo.create_policy(
             db=db,
             resource_id=get_resource_id_from_item_id(
-                item_id=db_item.id, domain=ResourceDomainEnum.items
+                item_id=db_item.id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             ),
             user_id=actor.id,
             right=ResourceRightsEnum.own,
+            actor=actor,
+        )
+        # create the casbin policy for the admin
+        _ = CasbinRepo.create_policy(
+            db=db,
+            resource_id=get_resource_id_from_item_id(
+                item_id=db_item.id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
+            ),
+            user_id=RoleEnum.admin,
+            right=ResourceRightsEnum.admin,
             actor=actor,
         )
         # well we dont need to talk to the user management anymore
@@ -43,7 +68,16 @@ def create_item(item_create: ItemCreate, actor: UserInJWT) -> Item:
     return item
 
 
-def update_item(item_id: str, item_patch: ItemPatch, actor: User) -> Item:
+def update_item(item_id: str, item_patch: ItemPatch, actor: UserInJWT) -> Item:
+    """here we need to enforce it, cos"""
+
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.update,
+    )
+
     with get_db() as db:
         db_item = ItemRepo.update(
             db=db, item_id=item_id, item_patch=item_patch, actor=actor
@@ -55,16 +89,25 @@ def update_item(item_id: str, item_patch: ItemPatch, actor: User) -> Item:
     return item
 
 
-def list_items(item_query: ItemQuery, actor: User) -> ItemWithPaging:
-    with get_db() as db:
+def list_items(item_query: ItemQuery, actor: UserInJWT) -> ItemWithPaging:
+    """no need to enforce"""
 
-        permissions = casbin_enforcer.get_permissions_for_user(actor.id)
+    with get_db() as db:
+        sub = RoleEnum.admin if actor.is_admin else actor.id
+        # if actor.is_admin:
+        #     casbin_policies = CasbinRepo
+        # else:
+        casbin_enforcer = create_casbin_enforcer(actor=actor, preload_policies=True)
+        permissions = casbin_enforcer.get_permissions_for_user_in_domain(user=sub, domain=actor.tenant_id)
 
         item_ids = [
             get_item_id_from_resource_id(
-                resource_id=p[1], domain=ResourceDomainEnum.items
+                resource_id=p[2],
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             )
             for p in permissions
+            if ResourceDomainEnum.items in p[2]
         ]
 
         db_items, paging = ItemRepo.get_all(
@@ -88,8 +131,14 @@ def list_items(item_query: ItemQuery, actor: User) -> ItemWithPaging:
     return ItemWithPaging(data=items, paging=paging)
 
 
-def share_item(item_id: str, user_share: UserShare, actor: User):
+def share_item(item_id: str, user_share: UserShare, actor: UserInJWT):
     """POST /items/item_id/sharees user_share"""
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.share,
+    )
     with get_db() as db:
 
         # ask the user management if the user
@@ -107,7 +156,9 @@ def share_item(item_id: str, user_share: UserShare, actor: User):
         CasbinRepo.create_or_update_policy(
             db=db,
             resource_id=get_resource_id_from_item_id(
-                item_id=item_id, domain=ResourceDomainEnum.items
+                item_id=item_id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             ),
             user_id=db_sharee.id,
             right=user_share.role,
@@ -115,18 +166,33 @@ def share_item(item_id: str, user_share: UserShare, actor: User):
         )
 
 
-def unshare_item(item_id: str, user_id: str):
+def unshare_item(item_id: str, user_id: str, actor: UserInJWT):
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.share,
+    )
     with get_db() as db:
         CasbinRepo.delete_policy(
             db=db,
             resource_id=get_resource_id_from_item_id(
-                item_id=item_id, domain=ResourceDomainEnum.items
+                item_id=item_id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             ),
             user_id=user_id,
+            tenant_id=actor.tenant_id
         )
 
 
-def get_item(item_id: str) -> Item:
+def get_item(item_id: str, actor: UserInJWT) -> Item:
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.get,
+    )
     with get_db() as db:
         db_item = ItemRepo.get(db=db, item_id=item_id)
 
@@ -144,13 +210,31 @@ def get_item(item_id: str) -> Item:
     return item
 
 
-def delete_item(item_id: str) -> None:
+def patch_item(item_id: str, actor: UserInJWT) -> None:
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.update,
+    )
+    print("can patch..")
+
+
+def delete_item(item_id: str, actor: UserInJWT) -> None:
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.delete,
+    )
     with get_db() as db:
         ItemRepo.delete(db=db, item_id=item_id)
         CasbinRepo.delete_policies_with_resource_id(
             db=db,
             resource_id=get_resource_id_from_item_id(
-                item_id=item_id, domain=ResourceDomainEnum.items
+                item_id=item_id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             ),
         )
 
@@ -158,27 +242,36 @@ def delete_item(item_id: str) -> None:
 def list_sharee_of_item(
     item_id: str, query_pagination: QueryPagination, actor: UserInJWT
 ):
+    enforce(
+        actor=actor,
+        item_id=item_id,
+        domain=ResourceDomainEnum.items,
+        action=ResourceActionsEnum.get,
+    )
     with get_db() as db:
 
         policies = CasbinRepo.get_all_policies_of_resource(
             db=db,
             resource_id=get_resource_id_from_item_id(
-                item_id=item_id, domain=ResourceDomainEnum.items
+                item_id=item_id,
+                domain=ResourceDomainEnum.items,
+                tenant_id=actor.tenant_id,
             ),
-            tenant_id=actor.tenant_id,
+            # tenant_id=actor.tenant_id,
         )
 
-        user_id_to_resource_right_mapping = {p.v0: p.v3 for p in policies}
+        user_id_to_resource_right_mapping = {p.v0: p.v3 for p in policies if p.v0 != RoleEnum.admin}
+    return user_id_to_resource_right_mapping
 
-        db_users, paging = UserRepo.get_all(
-            db=db,
-            query_pagination=query_pagination,
-            user_ids=list(user_id_to_resource_right_mapping.keys()),
-        )
+    #     db_users, paging = UserRepo.get_all(
+    #         db=db,
+    #         query_pagination=query_pagination,
+    #         user_ids=list(user_id_to_resource_right_mapping.keys()),
+    #     )
 
-        users_as_sharee = [UserAsSharee.from_orm(x) for x in db_users]
+    #     users_as_sharee = [UserAsSharee.from_orm(x) for x in db_users]
 
-        for user in users_as_sharee:
-            user.role = user_id_to_resource_right_mapping[user.id]
+    #     for user in users_as_sharee:
+    #         user.role = user_id_to_resource_right_mapping[user.id]
 
-    return UserAsShareeWithPaging(data=users_as_sharee, paging=paging)
+    # return UserAsShareeWithPaging(data=users_as_sharee, paging=paging)

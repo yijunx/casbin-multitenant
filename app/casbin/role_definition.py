@@ -57,7 +57,7 @@ resource_right_action_mapping: dict = {
         # make sures admin can perform action
         # on a group of resources
         ResourceActionsEnum.share,
-        ResourceActionsEnum.update,
+        # ResourceActionsEnum.update, # well the admin cannot patch
         ResourceActionsEnum.get,
     },
 }
