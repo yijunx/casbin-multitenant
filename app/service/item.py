@@ -8,7 +8,7 @@ from app.casbin.resource_id_converter import (
     get_item_id_from_resource_id,
     get_resource_id_from_item_id,
 )
-from app.casbin.enforcer import create_casbin_enforcer
+from app.casbin.enforcer import casbin_enforcer, Filter
 from app.utils.db import get_db
 from app.models.schemas.item import (
     ItemCreate,
@@ -102,7 +102,7 @@ def list_items(item_query: ItemQuery, actor: UserInJWT) -> ItemWithPaging:
                 tenant_id=actor.tenant_id,
             )
         else:
-            casbin_enforcer = create_casbin_enforcer(actor=actor)
+            casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
             permissions = casbin_enforcer.get_permissions_for_user_in_domain(
                 user=actor.id, domain=actor.tenant_id
             )

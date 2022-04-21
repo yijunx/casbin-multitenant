@@ -1,7 +1,7 @@
 # -------------------------------------------------------------------------------------------------------------
 # Copyright (c) UCARE.AI Pte Ltd. All rights reserved.
 # -------------------------------------------------------------------------------------------------------------
-from app.casbin.role_definition import ResourceRightsEnum
+from app.casbin.role_definition import ResourceActionsEnum, ResourceRightsEnum
 from app.utils.db import get_db
 from app.models.schemas.user import UserInJWT
 import app.repositories.casbin as CasbinRepo
@@ -12,11 +12,8 @@ from app.casbin.enforcer import Filter
 
 
 # use click to do soemthing here
-ADMIN_USER = UserInJWT(
-    id="admin id",
-    name="admin name",
-    tenant_id="cool tenant"
-)
+ADMIN_USER = UserInJWT(id="admin id", name="admin name", tenant_id="cool_tenant")
+
 
 def add_policies():
     with get_db() as db:
@@ -25,8 +22,8 @@ def add_policies():
             a_user_id = str(uuid.uuid4())
             CasbinRepo.create_policy(
                 db=db,
-                user_id="non exist user",
-                resource_id=f"test_domain/{a_user_id}",
+                user_id=a_user_id,
+                resource_id=f"cool_tenant/test_domain/{a_user_id}",
                 right=ResourceRightsEnum.own,
                 actor=ADMIN_USER,
             )
@@ -34,18 +31,17 @@ def add_policies():
 
 
 if __name__ == "__main__":
-    add_policies()
-    
-    t1 = time.perf_counter()
-    casbin_enforcer = create_casbin_enforcer(actor=UserInJWT(), preload_policies=False)
-    a_user_id = casbin_enforcer.load_policy()
-    t2 = time.perf_counter()
-    print(f"enforcer.load_policy() takes {t2 - t1} seconds")
+    user_id = add_policies()
+    actor = UserInJWT(id=user_id, name="", tenant_id="cool_tenant")
+    casbin_enforcer = create_casbin_enforcer()
 
     t1 = time.perf_counter()
-    casbin_enforcer = create_casbin_enforcer(actor=UserInJWT(), preload_policies=False)
-    casbin_enforcer.load_filtered_policy(
-        filter=Filter(v0=[conf.ITEM_ADMIN_ROLE_ID, a_user_id])
-    )
+    casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
     t2 = time.perf_counter()
     print(f"enforcer.load_filter_policy() for a user takes {t2 - t1} seconds")
+    casbin_enforcer.enforce(
+        actor.id,
+        actor.tenant_id,
+        f"cool_tenant/test_domain/{actor.id}",
+        ResourceActionsEnum.delete,
+    )

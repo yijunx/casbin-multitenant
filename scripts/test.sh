@@ -1,3 +1,3 @@
 clear
 # source ./admin_user.env
-pytest -v --cov-report term --cov=app
+pytest  --durations=0 -v --cov-report term --cov=app

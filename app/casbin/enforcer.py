@@ -15,7 +15,7 @@ from app.utils.db import get_db
 from typing import List
 
 
-def create_casbin_enforcer(actor: UserInJWT):
+def create_casbin_enforcer():
     """this enforcer preloads the policies for the actor"""
     adapter = casbin_sqlalchemy_adapter.Adapter(conf.DATABASE_URI)
     casbin_enforcer = casbin.Enforcer("app/casbin/model.conf", adapter)
@@ -48,8 +48,9 @@ def create_casbin_enforcer(actor: UserInJWT):
 
     casbin_enforcer.add_function("actions_mapping", actions_mapping)
     casbin_enforcer.add_function("objects_mapping", objects_mapping)
-    casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
     return casbin_enforcer
+
+casbin_enforcer = create_casbin_enforcer()
 
 
 def make_sure_policy_is_there(admin_actor: UserInJWT):
@@ -119,7 +120,7 @@ def enforce(
     )
 
     # everytime a new enforcer needs to be created
-    casbin_enforcer = create_casbin_enforcer(actor=actor)
+    casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
 
     if actor.is_admin:
         print("now we have an admin..")
