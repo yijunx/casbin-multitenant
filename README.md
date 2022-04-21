@@ -44,7 +44,8 @@ This repo shows how to manage RBAC with casbin
     - view, can perform actions like get
     - admin, can perform actions like share/get
 - The setup of casbin can tell from `app/casbin/model.conf`
-- This app works statelessly. Everytime a service function is triggered, a new casbin enforcer will need to load policies.
+- This app works statelessly. Everytime a service function is triggered, the casbin enforcer reloads policies.
+- When the service sees an admin user, it wont go through the normal casbin, but allow him to access all resources in his domain, just check his action only.
 
 
 ### To finish as a full flask app
@@ -60,4 +61,15 @@ This repo shows how to manage RBAC with casbin
 make test
 ```
 
-- Can add more tests to tests/test_service/test_service.py
+- The test will record time for top a few slowest operations to check performance
+- All tests are in tests/test_service/test_service.py, they will trigger the repo layer thus the coverage is quite high.
+- The test covers the situation of 2 tenants, with admin, and see if all operations have intended result. All stuff created in the tests will be deleted at last.
+
+### Load test
+
+```bash
+# open in devcontainer first
+python load_policy_test.py
+```
+
+Each time adds 3000 policies, and see the time spent in load policy for the user. We can also add like 12000 policies then run `make test` to see the performance of other stuff when there are a lot of policies in db.
