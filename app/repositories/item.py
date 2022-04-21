@@ -13,6 +13,7 @@ def create(db: Session, item_create: ItemCreate, actor: User) -> Item:
     """ """
     db_item = Item(
         id=str(uuid.uuid4()),
+        tenant_id=actor.tenant_id,
         name=item_create.name,
         desc=item_create.desc,
         content=item_create.content,
@@ -47,15 +48,20 @@ def get_by_name(db: Session, item_name: str) -> Union[Item, None]:
 
 
 def get_all(
-    db: Session, query_pagination: ItemQuery, admin_access: bool, item_ids: List[str]
+    db: Session,
+    query_pagination: ItemQuery,
+    item_ids: List[str] = None,
+    tenant_id: str = None,
 ) -> Tuple[List[Item], ResponsePagination]:
 
     query = db.query(Item)
 
-    if not admin_access:
+    if item_ids:
         # if there is no admin access, this user can only see what
         # he created or shared to
         query = query.filter(Item.id.in_(item_ids))
+    if tenant_id:
+        query = query.filter(Item.tenant_id == tenant_id)
 
     if query_pagination.name:
         query = query.filter(Item.name.contains(query_pagination.name))

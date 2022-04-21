@@ -16,6 +16,6 @@ def get_item_id_from_resource_id(
 ) -> str:
     prefix = get_resource_prefix(domain=domain, tenant_id=tenant_id)
     if resource_id.startswith(prefix):
-        return resource_id[len(prefix):]
+        return resource_id[len(prefix) :]
     else:
         raise Exception(f"resource id {resource_id} not starting with prefix {prefix}")

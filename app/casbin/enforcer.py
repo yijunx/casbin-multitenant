@@ -15,7 +15,8 @@ from app.utils.db import get_db
 from typing import List
 
 
-def create_casbin_enforcer(actor: UserInJWT, preload_policies: bool):
+def create_casbin_enforcer(actor: UserInJWT):
+    """this enforcer preloads the policies for the actor"""
     adapter = casbin_sqlalchemy_adapter.Adapter(conf.DATABASE_URI)
     casbin_enforcer = casbin.Enforcer("app/casbin/model.conf", adapter)
 
@@ -47,10 +48,7 @@ def create_casbin_enforcer(actor: UserInJWT, preload_policies: bool):
 
     casbin_enforcer.add_function("actions_mapping", actions_mapping)
     casbin_enforcer.add_function("objects_mapping", objects_mapping)
-    if preload_policies:
-        casbin_enforcer.load_filtered_policy(
-            filter=Filter(v0=[RoleEnum.admin, actor.id])
-        )
+    casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
     return casbin_enforcer
 
 
@@ -121,29 +119,38 @@ def enforce(
     )
 
     # everytime a new enforcer needs to be created
-    casbin_enforcer = create_casbin_enforcer(actor=actor, preload_policies=False)
+    casbin_enforcer = create_casbin_enforcer(actor=actor)
 
     if actor.is_admin:
         print("now we have an admin..")
         # check if policy for admin of the tenant has been created...
-        make_sure_policy_is_there(admin_actor=actor)
+        # make_sure_policy_is_there(admin_actor=actor)
 
         # ORG 2/items/f35a7b4d-8e22-4d05-b2ba-afa959de080f
         # items/ORG-1/ffff <- upon creation..
         # items/
         # also need to make sure if the resource is there
-        # if not resource_exits(resource_id=resource_id):
-        #     raise CasbinNotAuthorised(
-        #         actor=actor, resource_id=resource_id, action=action
-        #     )
+        if not resource_exits(resource_id=resource_id):
+            raise CasbinNotAuthorised(
+                actor=actor, resource_id=resource_id, action=action
+            )
+        # and check if the action is ok
+        if action not in resource_right_action_mapping[ResourceRightsEnum.admin]:
+            raise CasbinNotAuthorised(
+                actor=actor, resource_id=resource_id, action=action
+            )
     #     sub = RoleEnum.admin
     # else:
     #     sub = actor.id
+    else:  # the actor is not admin
+        casbin_enforcer.load_filtered_policy(filter=Filter(v0=[actor.id]))
 
-    casbin_enforcer.load_filtered_policy(filter=Filter(v0=[RoleEnum.admin, actor.id]))
+        print("REQUEST: ", actor.id, actor.tenant_id, resource_id, action)
+        verdict = casbin_enforcer.enforce(
+            actor.id, actor.tenant_id, resource_id, action
+        )
 
-    print("REQUEST: ", actor.id, actor.tenant_id, resource_id, action)
-    verdict = casbin_enforcer.enforce(actor.id, actor.tenant_id, resource_id, action)
-
-    if verdict is False:
-        raise CasbinNotAuthorised(actor=actor, resource_id=resource_id, action=action)
+        if verdict is False:
+            raise CasbinNotAuthorised(
+                actor=actor, resource_id=resource_id, action=action
+            )

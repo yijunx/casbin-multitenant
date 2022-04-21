@@ -100,10 +100,6 @@ def get_all_policies_of_resource(db: Session, resource_id: str) -> List[CasbinRu
     return query.all()
 
 
-def get_all_resources_of_a_tenant(db: Session, tenant_id):
-    ...
-
-
 def get_grouping(
     db: Session, role_name: str, user_id: str, tenant_id: str
 ) -> CasbinRule:

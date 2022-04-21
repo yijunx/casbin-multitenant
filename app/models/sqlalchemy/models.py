@@ -31,6 +31,9 @@ class CasbinRule(Base):
 class Item(Base):
     __tablename__ = "items"
     id = Column(String, primary_key=True, index=True)
+    tenant_id = Column(String, index=True)
+    # here we index it so that we can faster find all the resources of that tenant..
+
     name = Column(String, nullable=False)
     desc = Column(String, nullable=True)
     content = Column(String, nullable=False)

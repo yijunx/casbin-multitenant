@@ -93,26 +93,35 @@ def list_items(item_query: ItemQuery, actor: UserInJWT) -> ItemWithPaging:
     """no need to enforce"""
 
     with get_db() as db:
-        sub = RoleEnum.admin if actor.is_admin else actor.id
-        # if actor.is_admin:
-        #     casbin_policies = CasbinRepo
-        # else:
-        casbin_enforcer = create_casbin_enforcer(actor=actor, preload_policies=True)
-        permissions = casbin_enforcer.get_permissions_for_user_in_domain(user=sub, domain=actor.tenant_id)
 
-        item_ids = [
-            get_item_id_from_resource_id(
-                resource_id=p[2],
-                domain=ResourceDomainEnum.items,
+        if actor.is_admin:
+            db_items, paging = ItemRepo.get_all(
+                # well here we need something like tenant id...
+                db=db,
+                query_pagination=item_query,
                 tenant_id=actor.tenant_id,
             )
-            for p in permissions
-            if ResourceDomainEnum.items in p[2]
-        ]
+        else:
+            casbin_enforcer = create_casbin_enforcer(actor=actor)
+            permissions = casbin_enforcer.get_permissions_for_user_in_domain(
+                user=actor.id, domain=actor.tenant_id
+            )
 
-        db_items, paging = ItemRepo.get_all(
-            db=db, query_pagination=item_query, admin_access=False, item_ids=item_ids
-        )
+            item_ids = [
+                get_item_id_from_resource_id(
+                    resource_id=p[2],
+                    domain=ResourceDomainEnum.items,
+                    tenant_id=actor.tenant_id,
+                )
+                for p in permissions
+                if ResourceDomainEnum.items in p[2]
+            ]
+
+            db_items, paging = ItemRepo.get_all(
+                db=db,
+                query_pagination=item_query,
+                item_ids=item_ids,
+            )
 
         # use list(set([])) to remove dups
         # user_ids = list(
@@ -182,7 +191,7 @@ def unshare_item(item_id: str, user_id: str, actor: UserInJWT):
                 tenant_id=actor.tenant_id,
             ),
             user_id=user_id,
-            tenant_id=actor.tenant_id
+            tenant_id=actor.tenant_id,
         )
 
 
@@ -260,7 +269,9 @@ def list_sharee_of_item(
             # tenant_id=actor.tenant_id,
         )
 
-        user_id_to_resource_right_mapping = {p.v0: p.v3 for p in policies if p.v0 != RoleEnum.admin}
+        user_id_to_resource_right_mapping = {
+            p.v0: p.v3 for p in policies if p.v0 != RoleEnum.admin
+        }
     return user_id_to_resource_right_mapping
 
     #     db_users, paging = UserRepo.get_all(

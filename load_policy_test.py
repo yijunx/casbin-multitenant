@@ -12,7 +12,11 @@ from app.casbin.enforcer import Filter
 
 
 # use click to do soemthing here
-
+ADMIN_USER = UserInJWT(
+    id="admin id",
+    name="admin name",
+    tenant_id="cool tenant"
+)
 
 def add_policies():
     with get_db() as db:
@@ -24,7 +28,7 @@ def add_policies():
                 user_id="non exist user",
                 resource_id=f"test_domain/{a_user_id}",
                 right=ResourceRightsEnum.own,
-                actor=admin_user,
+                actor=ADMIN_USER,
             )
     return a_user_id  # return the last user id for test purpose
 
